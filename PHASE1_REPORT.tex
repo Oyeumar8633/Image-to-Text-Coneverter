@@ -1,0 +1,428 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+% Page style
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Phase 1 Report: Image-to-Word Converter}
+\fancyhead[R]{\today}
+\fancyfoot[C]{\thepage}
+
+% Title formatting
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    pdftitle={Phase 1 Report: Image-to-Word Converter},
+    pdfauthor={Development Team}
+}
+
+\begin{document}
+
+\title{\textbf{Phase 1 Report: Image-to-Word Converter MVP}}
+\author{Development Team}
+\date{\today}
+\maketitle
+
+\section{Project Overview}
+
+This document outlines the implementation of Phase 1 of the Image-to-Word Converter project. The MVP is a Streamlit-based web application that extracts text from images using OCR technology and preserves formatting (Bold, Italic, Alignment) in Microsoft Word (.docx) format.
+
+\section{Technical Stack}
+
+\begin{itemize}
+    \item \textbf{Frontend Framework}: Streamlit 1.28.0+
+    \item \textbf{OCR Engines}: 
+    \begin{itemize}
+        \item \textbf{PaddleOCR 3.4.0+} (Primary - Best overall accuracy for printed and handwritten text)
+        \item \textbf{EasyOCR 1.7.0+} (Alternative - Good for handwriting)
+        \item \textbf{Tesseract OCR} (via pytesseract) - Fast for printed text
+    \end{itemize}
+    \item \textbf{Document Generation}: python-docx 1.1.0+
+    \item \textbf{Image Processing}: OpenCV 4.8.0+ and Pillow 10.0.0+
+    \item \textbf{Deep Learning}: PyTorch 2.0.0+ (for EasyOCR and PaddleOCR)
+    \item \textbf{Language}: Python 3.8+
+\end{itemize}
+
+\section{Project Structure}
+
+\begin{verbatim}
+PPIT Project/
+├── app.py                 # Main Streamlit application
+├── ocr_engine.py          # OCR processing and formatting detection
+├── requirements.txt       # Python dependencies
+├── .gitignore            # Git ignore file (excludes venv/)
+├── venv/                 # Virtual environment (created locally)
+└── PHASE1_REPORT.md       # This documentation file
+\end{verbatim}
+
+\subsection{OCR Engine Support}
+
+The application supports \textbf{three OCR engines}:
+
+\begin{enumerate}
+    \item \textbf{PaddleOCR} (Recommended)
+    \begin{itemize}
+        \item Best overall accuracy for both printed and handwritten text
+        \item Deep learning-based with excellent recognition rates
+        \item Automatic angle detection and document preprocessing
+        \item Models downloaded automatically on first use
+    \end{itemize}
+    
+    \item \textbf{EasyOCR}
+    \begin{itemize}
+        \item Excellent for handwriting recognition
+        \item Deep learning-based
+        \item Good for complex layouts
+        \item Models downloaded automatically on first use
+    \end{itemize}
+    
+    \item \textbf{Tesseract OCR}
+    \begin{itemize}
+        \item Fast and lightweight
+        \item Best for clear printed documents
+        \item Multiple PSM modes for different document types
+        \item Requires system-level Tesseract installation
+    \end{itemize}
+\end{enumerate}
+
+\section{Implementation Details}
+
+\subsection{OCR Engine (\texttt{ocr\_engine.py})}
+
+The OCR engine module provides the core functionality for text extraction and formatting detection.
+
+\subsubsection{Key Components:}
+
+\textbf{Image Preprocessing (\texttt{preprocess\_image})}
+\begin{itemize}
+    \item Converts images to grayscale
+    \item Applies adaptive thresholding for binary conversion
+    \item Implements denoising using OpenCV's fastNlMeansDenoising
+    \item Optimizes images for better OCR accuracy
+\end{itemize}
+
+\textbf{Formatting Detection (\texttt{detect\_formatting\_from\_confidence})}
+\begin{itemize}
+    \item Analyzes OCR confidence scores to identify bold text
+    \item Uses word height characteristics for formatting inference
+    \item Implements heuristics for italic text detection
+    \item Note: Formatting detection is probabilistic and works best with clear, well-formatted documents
+\end{itemize}
+
+\textbf{Alignment Detection (\texttt{detect\_alignment})}
+\begin{itemize}
+    \item Analyzes text block positions relative to page width
+    \item Classifies alignment as left, center, or right
+    \item Uses margin-based detection (20\% margins on each side)
+\end{itemize}
+
+\textbf{Text Extraction (\texttt{extract\_text\_with\_formatting})}
+\begin{itemize}
+    \item Uses Tesseract's \texttt{image\_to\_data} for detailed OCR information
+    \item Groups words into paragraphs based on vertical positioning
+    \item Preserves line breaks and paragraph structure
+    \item Returns structured \texttt{TextBlock} objects with formatting metadata
+\end{itemize}
+
+\textbf{Data Structure (\texttt{TextBlock})}
+\begin{itemize}
+    \item Dataclass representing text blocks with:
+    \begin{itemize}
+        \item Text content
+        \item Bold/Italic flags
+        \item Confidence score
+        \item Position and dimensions
+        \item Alignment information
+    \end{itemize}
+\end{itemize}
+
+\subsection{Streamlit Application (\texttt{app.py})}
+
+The main application provides a user-friendly interface for the OCR conversion process.
+
+\subsubsection{Features:}
+
+\textbf{User Interface}
+\begin{itemize}
+    \item Clean, modern Streamlit UI with wide layout
+    \item Image uploader supporting JPG, JPEG, and PNG formats
+    \item Side-by-side image preview and processing options
+    \item Real-time processing status indicators
+\end{itemize}
+
+\textbf{Functionality}
+\begin{itemize}
+    \item Image upload and preview
+    \item Configurable preprocessing (enable/disable)
+    \item Configurable formatting detection (enable/disable)
+    \item One-click conversion to Word document
+    \item Direct download of generated .docx file
+    \item Extracted text preview before download
+\end{itemize}
+
+\textbf{Document Generation}
+\begin{itemize}
+    \item Creates formatted Word documents using python-docx
+    \item Preserves bold and italic formatting
+    \item Maintains paragraph alignment (left, center, right)
+    \item Adds appropriate spacing between paragraphs
+    \item Fallback to simple text extraction if formatting detection fails
+\end{itemize}
+
+\textbf{Error Handling}
+\begin{itemize}
+    \item Comprehensive exception handling
+    \item User-friendly error messages
+    \item Graceful fallback mechanisms
+\end{itemize}
+
+\subsection{Dependencies (\texttt{requirements.txt})}
+
+All required Python packages with minimum version specifications:
+\begin{itemize}
+    \item \texttt{streamlit}: Web application framework
+    \item \texttt{pytesseract}: Python wrapper for Tesseract OCR
+    \item \texttt{python-docx}: Word document generation
+    \item \texttt{opencv-python}: Image processing
+    \item \texttt{Pillow}: Image manipulation
+    \item \texttt{numpy}: Numerical operations
+    \item \texttt{easyocr}: Deep learning OCR engine (optional, for handwriting)
+    \item \texttt{torch}: PyTorch deep learning framework (for EasyOCR)
+    \item \texttt{paddlepaddle}: PaddlePaddle deep learning framework (for PaddleOCR)
+    \item \texttt{paddleocr}: PaddleOCR engine (recommended, best accuracy)
+\end{itemize}
+
+\section{Usage Instructions}
+
+\subsection{Installation}
+
+\begin{enumerate}
+    \item \textbf{Install Tesseract OCR} (system-level dependency, optional if using only PaddleOCR/EasyOCR):
+    \begin{itemize}
+        \item \textbf{macOS}: \texttt{brew install tesseract}
+        \item \textbf{Linux}: \texttt{sudo apt-get install tesseract-ocr}
+        \item \textbf{Windows}: Download from \url{https://github.com/UB-Mannheim/tesseract/wiki}
+        \item \textbf{Note}: Tesseract is optional if you only use PaddleOCR or EasyOCR
+    \end{itemize}
+    
+    \item \textbf{Create and activate virtual environment} (recommended):
+    \begin{lstlisting}[language=bash]
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+    \end{lstlisting}
+    
+    \item \textbf{Install Python dependencies}:
+    \begin{lstlisting}[language=bash]
+pip install --upgrade pip
+pip install -r requirements.txt
+    \end{lstlisting}
+    
+    \textbf{Note}: First-time installation will download deep learning models:
+    \begin{itemize}
+        \item PaddleOCR models (\textasciitilde100MB) - downloaded automatically on first use
+        \item EasyOCR models (\textasciitilde100MB) - downloaded automatically on first use
+        \item Models are cached locally for future use
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Running the Application}
+
+\begin{enumerate}
+    \item \textbf{Activate virtual environment} (if not already activated):
+    \begin{lstlisting}[language=bash]
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+    \end{lstlisting}
+    
+    \item \textbf{Start the Streamlit server}:
+    \begin{lstlisting}[language=bash]
+streamlit run app.py
+    \end{lstlisting}
+    
+    \item \textbf{Access the application}:
+    \begin{itemize}
+        \item The application will open automatically in your default web browser
+        \item Default URL: \texttt{http://localhost:8501}
+    \end{itemize}
+    
+    \item \textbf{Using the application}:
+    \begin{itemize}
+        \item Upload a JPG or PNG image file
+        \item Preview the uploaded image
+        \item Adjust settings in the sidebar (optional)
+        \item Click "Convert to Word Document"
+        \item Download the generated .docx file
+    \end{itemize}
+\end{enumerate}
+
+\section{Technical Limitations (Phase 1 Scope)}
+
+\begin{enumerate}
+    \item \textbf{Single-page documents only}: The current implementation is optimized for single-page English documents.
+    
+    \item \textbf{Formatting detection accuracy}: Bold and italic detection relies on heuristics and may not be 100\% accurate, especially with:
+    \begin{itemize}
+        \item Handwritten text
+        \item Complex layouts
+        \item Low-quality images
+        \item Unusual fonts
+    \end{itemize}
+    
+    \item \textbf{Language support}: Currently optimized for English text. PaddleOCR and EasyOCR support multiple languages, but formatting detection is tuned for English.
+    
+    \item \textbf{Alignment detection}: Simple margin-based approach may not work perfectly for all document layouts.
+    
+    \item \textbf{Image quality dependency}: OCR accuracy heavily depends on image quality, resolution, and contrast.
+    
+    \item \textbf{Model download}: First-time use of PaddleOCR or EasyOCR requires downloading models (\textasciitilde100MB each), which may take a few minutes depending on internet speed.
+    
+    \item \textbf{Processing time}: Deep learning OCRs (PaddleOCR, EasyOCR) are slower than Tesseract but provide better accuracy, especially for handwriting.
+\end{enumerate}
+
+\section{Best Practices for Users}
+
+\begin{enumerate}
+    \item \textbf{Image Quality}:
+    \begin{itemize}
+        \item Use high-resolution images (minimum 300 DPI recommended)
+        \item Ensure good contrast between text and background
+        \item Use clear, well-lit images
+    \end{itemize}
+    
+    \item \textbf{Document Type}:
+    \begin{itemize}
+        \item Works best with printed or typed text
+        \item Single-column layouts perform better
+        \item Clear paragraph breaks improve structure detection
+    \end{itemize}
+    
+    \item \textbf{Preprocessing}:
+    \begin{itemize}
+        \item Enable preprocessing for scanned documents
+        \item Disable preprocessing for already-clear digital images
+    \end{itemize}
+    
+    \item \textbf{Formatting Detection}:
+    \begin{itemize}
+        \item Enable formatting detection for documents with clear formatting
+        \item Disable for simple text extraction if formatting detection causes issues
+    \end{itemize}
+\end{enumerate}
+
+\section{Future Enhancements (Post-Phase 1)}
+
+\begin{enumerate}
+    \item Multi-page document support
+    \item Improved formatting detection using machine learning
+    \item Table detection and preservation
+    \item Multiple language support with language selection
+    \item Batch processing for multiple images
+    \item Custom formatting rules configuration
+    \item Export to other formats (PDF, HTML, etc.)
+    \item OCR confidence threshold configuration
+    \item Manual formatting correction interface
+    \item Cloud storage integration
+\end{enumerate}
+
+\section{Testing Recommendations}
+
+\begin{enumerate}
+    \item \textbf{Test with various image types}:
+    \begin{itemize}
+        \item Scanned documents
+        \item Digital screenshots
+        \item Photos of documents
+        \item Different resolutions
+    \end{itemize}
+    
+    \item \textbf{Test formatting preservation}:
+    \begin{itemize}
+        \item Documents with bold text
+        \item Documents with italic text
+        \item Mixed formatting
+        \item Different alignments
+    \end{itemize}
+    
+    \item \textbf{Test edge cases}:
+    \begin{itemize}
+        \item Low-quality images
+        \item Handwritten text (may not work well)
+        \item Complex layouts
+        \item Non-English text
+    \end{itemize}
+\end{enumerate}
+
+\section{Conclusion}
+
+Phase 1 successfully delivers a functional MVP of the Image-to-Word Converter with:
+\begin{itemize}
+    \item \checkmark \textbf{Multiple OCR engines} (PaddleOCR, EasyOCR, Tesseract)
+    \item \checkmark OCR text extraction with high accuracy
+    \item \checkmark Basic formatting detection (Bold, Italic)
+    \item \checkmark Alignment preservation
+    \item \checkmark Image preprocessing with multiple methods
+    \item \checkmark Confidence threshold control
+    \item \checkmark Clean, user-friendly interface
+    \item \checkmark Production-ready code structure
+    \item \checkmark Comprehensive error handling
+\end{itemize}
+
+The application is ready for testing and deployment, and can be extended in future phases based on user feedback and requirements.
+
+\section{Deployment}
+
+For detailed deployment instructions, see \textbf{DEPLOYMENT.md} in the project root.
+
+\textbf{Quick Start - Streamlit Cloud (Recommended)}:
+\begin{enumerate}
+    \item Push code to GitHub
+    \item Go to \url{https://share.streamlit.io}
+    \item Connect your GitHub repo
+    \item Deploy with one click!
+\end{enumerate}
+
+See \texttt{DEPLOYMENT.md} for other deployment options (Heroku, Docker, VPS, etc.).
+
+\section{Contact \& Support}
+
+For issues, questions, or contributions, please refer to the project repository or contact the development team.
+
+\vspace{1cm}
+
+\begin{center}
+\textbf{Report Generated}: Phase 1 Implementation \\
+\textbf{Status}: \checkmark Complete \\
+\textbf{Version}: 1.0.0
+\end{center}
+
+\end{document}
